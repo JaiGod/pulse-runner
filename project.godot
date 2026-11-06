@@ -1,0 +1,39 @@
+; Engine configuration file.
+; Pulse Runner — original rhythm game by Jaineil Rana (JaKing) / JaiGod
+
+config_version=5
+
+[application]
+
+config/name="Pulse Runner"
+config/description="An original neon rhythm game: 4 lanes, a runner mode and 8 songs synthesized in code."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility")
+boot_splash/bg_color=Color(0.03, 0.01, 0.07, 1)
+boot_splash/show_image=false
+config/icon="res://icon.svg"
+
+[audio]
+
+driver/output_latency.web=50
+
+[display]
+
+window/size/viewport_width=540
+window/size/viewport_height=960
+window/size/window_width_override=1080
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.03, 0.01, 0.07, 1)
+anti_aliasing/quality/msaa_2d=0

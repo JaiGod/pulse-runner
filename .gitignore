@@ -1,0 +1,6 @@
+# Godot
+.godot/
+*.import
+build/
+site/
+export_credentials.cfg

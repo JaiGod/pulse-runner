@@ -32,7 +32,7 @@ static func lane_geom(m) -> Dictionary:
 	var sz := vsize(m)
 	var w := minf(460.0, sz.x * 0.92)
 	var x0 := (sz.x - w) * 0.5
-	return {"x0": x0, "w": w, "lw": w / 4.0, "hit": sz.y - 170.0, "top": 90.0}
+	return {"x0": x0, "w": w, "lw": w / 3.0, "hit": sz.y - 170.0, "top": 90.0}
 
 static func lane_hit_pos(m, lane: int) -> Vector2:
 	var g := lane_geom(m)
@@ -160,11 +160,11 @@ static func draw_lanes(m, sz: Vector2) -> void:
 	var g := lane_geom(m)
 	var fv: bool = m.in_fever()
 	m.draw_rect(Rect2(g.x0, 0, g.w, sz.y), Color(0.02, 0.0, 0.06, 0.62))
-	for l in 4:
+	for l in 3:
 		var x: float = g.x0 + g.lw * l
 		var col: Color = m.LANE_COL[l]
 		if fv:
-			col = Color.from_hsv(fposmod(m.anim * 0.5 + l * 0.25, 1.0), 0.7, 1.0)
+			col = Color.from_hsv(fposmod(m.anim * 0.5 + l * 0.33, 1.0), 0.7, 1.0)
 		var fl: float = m.flash[l]
 		if m.pressed[l]:
 			fl = maxf(fl, 0.6)
@@ -175,7 +175,7 @@ static func draw_lanes(m, sz: Vector2) -> void:
 		# receptor
 		var rc := Vector2(x + g.lw * 0.5, g.hit)
 		m.draw_rect(Rect2(rc.x - g.lw * 0.4, rc.y - 14, g.lw * 0.8, 28), Color(col, 0.25 + 0.5 * fl), false, 3.0)
-		text(m, Vector2(x, g.hit + 62), ["D", "F", "J", "K"][l], 26, Color(col, 0.75), g.lw)
+		text(m, Vector2(x, g.hit + 62), ["A", "S", "D"][l], 26, Color(col, 0.75), g.lw)
 	m.draw_line(Vector2(g.x0 + g.w, 0), Vector2(g.x0 + g.w, sz.y), Color(1, 1, 1, 0.08), 1.0)
 	m.draw_line(Vector2(g.x0, g.hit), Vector2(g.x0 + g.w, g.hit), Color(1, 1, 1, 0.55), 2.0)
 	var ap := approach(m)
@@ -195,7 +195,7 @@ static func draw_lanes(m, sz: Vector2) -> void:
 		var l: int = n[1]
 		var col: Color = m.LANE_COL[l]
 		if fv:
-			col = Color.from_hsv(fposmod(m.anim * 0.5 + l * 0.25, 1.0), 0.7, 1.0)
+			col = Color.from_hsv(fposmod(m.anim * 0.5 + l * 0.33, 1.0), 0.7, 1.0)
 		var a := 1.0
 		if n[2] >= 0 and n[2] < 3:
 			continue
@@ -216,7 +216,7 @@ static func _proj(m, lane: float, u: float) -> Vector2:
 	var hit := sz.y - 200.0
 	var s := 1.0 / (1.0 + maxf(-0.12, u) * 6.0)
 	var w := minf(500.0, sz.x * 0.96)
-	var x := sz.x * 0.5 + (lane - 1.5) * (w / 4.0) * s
+	var x := sz.x * 0.5 + (lane - 1.0) * (w / 3.0) * s
 	var y := hz + (hit - hz) * s
 	return Vector2(x, y)
 
@@ -228,14 +228,14 @@ static func draw_runner_track(m, sz: Vector2) -> void:
 	var ap := approach(m)
 	# road
 	var a := _proj(m, -0.5, 1.0)
-	var b := _proj(m, 3.5, 1.0)
-	var c := _proj(m, 3.5, -0.12)
+	var b := _proj(m, 2.5, 1.0)
+	var c := _proj(m, 2.5, -0.12)
 	var d := _proj(m, -0.5, -0.12)
 	m.draw_colored_polygon(PackedVector2Array([a, b, c, d]), Color(0.03, 0.0, 0.08, 0.85))
-	for l in 5:
+	for l in 4:
 		var p0 := _proj(m, l - 0.5, 1.0)
 		var p1 := _proj(m, l - 0.5, -0.12)
-		var col := Color(1, 1, 1, 0.12) if l in [1, 3] else Color("#ff3cac") if l != 2 else Color(1, 1, 1, 0.35)
+		var col := Color(1, 1, 1, 0.16) if l in [1, 2] else Color("#ff3cac")
 		m.draw_line(p0, p1, col, 2.0)
 	# moving stripes (beat synced)
 	var bt: float = 60.0 / m.bpm
@@ -245,18 +245,18 @@ static func draw_runner_track(m, sz: Vector2) -> void:
 		if u < -0.1 or u > 1.0:
 			continue
 		var p0 := _proj(m, -0.5, u)
-		var p1 := _proj(m, 3.5, u)
+		var p1 := _proj(m, 2.5, u)
 		m.draw_line(p0, p1, Color(1, 1, 1, 0.08 + 0.1 * (1.0 - u)), 1.5)
 	# hit line
 	var h0 := _proj(m, -0.5, 0.0)
-	var h1 := _proj(m, 3.5, 0.0)
+	var h1 := _proj(m, 2.5, 0.0)
 	m.draw_line(h0, h1, Color(1, 1, 1, 0.6), 3.0)
-	for l in 4:
+	for l in 3:
 		var hp := _proj(m, l, 0.0)
 		var col: Color = m.LANE_COL[l]
 		var fl: float = m.flash[l]
 		m.draw_circle(hp, 10.0 + 8.0 * fl, Color(col, 0.3 + 0.5 * fl))
-		text(m, Vector2(hp.x - 40, hp.y + 74), ["D", "F", "J", "K"][l] + (" ^" if l < 2 else " v"), 22, Color(col, 0.75), 80.0)
+		text(m, Vector2(hp.x - 50, hp.y + 74), ["A jump", "S slide", "D dash"][l], 20, Color(col, 0.8), 100.0)
 	# obstacles far -> near
 	var vis := []
 	for k in range(maxi(0, m.scan - 16), m.notes.size()):
@@ -277,11 +277,19 @@ static func draw_runner_track(m, sz: Vector2) -> void:
 		var p := _proj(m, l, u)
 		var col: Color = m.LANE_COL[l]
 		if fv:
-			col = Color.from_hsv(fposmod(m.anim * 0.5 + l * 0.25, 1.0), 0.7, 1.0)
+			col = Color.from_hsv(fposmod(m.anim * 0.5 + l * 0.33, 1.0), 0.7, 1.0)
 		if n[2] == 3:
 			col = Color(1.0, 0.3, 0.4, 0.4)
-		var hw := 44.0 * s
-		if l < 2:
+		var hw := 52.0 * s
+		if l == 2:
+			# energy barrier -> dash through
+			var bh := 80.0 * s
+			m.draw_rect(Rect2(p + Vector2(-hw, -bh), Vector2(hw * 2, bh)), Color(col, 0.22))
+			m.draw_rect(Rect2(p + Vector2(-hw, -bh), Vector2(hw * 2, bh)), col, false, 3.0 * s + 1.0)
+			for q in 2:
+				var cx := -10.0 * s + q * 18.0 * s
+				m.draw_polyline(PackedVector2Array([p + Vector2(cx - 8 * s, -bh * 0.7), p + Vector2(cx + 6 * s, -bh * 0.5), p + Vector2(cx - 8 * s, -bh * 0.3)]), col, 3.0 * s + 1.0)
+		elif l == 0:
 			# hurdle: two posts + bar -> jump
 			var hh := 46.0 * s
 			m.draw_line(p + Vector2(-hw, 0), p + Vector2(-hw, -hh), col, 4.0 * s + 1.0)
@@ -313,12 +321,30 @@ static func draw_runner(m) -> void:
 	var jd := 0.42
 	var y := 0.0
 	var sliding := slide < 0.42
+	var dash: float = r.get("dash", 9.0)
 	if jump < jd:
 		var q := jump / jd
 		y = -4.0 * q * (1.0 - q) * 90.0
 	var c := base + Vector2(0, y)
 	var glow := Color(1.0, 0.25, 0.7, 0.25)
 	m.draw_circle(base + Vector2(0, 2), 26.0, Color(0, 0, 0, 0.35))
+	if dash < 0.3:
+		# forward dash: lean + afterimages + speed lines
+		for k in 3:
+			var gc := Color(col, 0.18 - k * 0.05)
+			var o := Vector2(-18.0 * (k + 1), 0)
+			m.draw_line(c + o + Vector2(0, -34), c + o + Vector2(16, -62), gc, 9.0)
+		var hp2 := c + Vector2(0, -34)
+		var nk := c + Vector2(16, -62)
+		m.draw_line(hp2, nk, col, 9.0)
+		m.draw_circle(nk + Vector2(6, -12), 11.0, col)
+		m.draw_rect(Rect2(nk + Vector2(2, -16), Vector2(16, 5)), Color("#ff9f2c"))
+		m.draw_line(hp2, c + Vector2(18, -4), col, 7.0)
+		m.draw_line(hp2, c + Vector2(-20, -2), col, 7.0)
+		m.draw_line(nk + Vector2(0, 6), nk + Vector2(26, 2), col, 6.0)
+		for k in 4:
+			m.draw_line(c + Vector2(-50 - k * 12, -60 + k * 14), c + Vector2(-80 - k * 12, -60 + k * 14), Color("#ff9f2c", 0.6), 3.0)
+		return
 	if sliding:
 		# low dash pose
 		var hip := c + Vector2(-6, -16)
@@ -407,7 +433,7 @@ static func draw_hud(m, sz: Vector2) -> void:
 	if m.state == "play" and m.t_now < 0.0 and m.resume_cd <= 0.0:
 		var beats: float = -m.t_now * m.bpm / 60.0
 		text(m, Vector2(0, sz.y * 0.45), str(int(ceil(beats))) if beats < 4.0 else "GET READY", 64 if beats < 4.0 else 44, Color("#ffd23f"), -1.0, HORIZONTAL_ALIGNMENT_CENTER, 8)
-		text(m, Vector2(0, sz.y * 0.45 + 40), "D F J K  or tap the lanes", 18, DIM)
+		text(m, Vector2(0, sz.y * 0.45 + 40), "A S D  or tap the lanes", 18, DIM)
 	if m.resume_cd > 0.0:
 		text(m, Vector2(0, sz.y * 0.45), "READY...", 52, Color("#2cf6ff"), -1.0, HORIZONTAL_ALIGNMENT_CENTER, 8)
 	if m.auto:
@@ -538,8 +564,8 @@ static func draw_howto(m, sz: Vector2) -> void:
 	text(m, Vector2(0, 92), "HOW TO PLAY", 32, Color("#2cf6ff"), -1.0, HORIZONTAL_ALIGNMENT_CENTER, 6)
 	var lines := [
 		["Hit the notes as they cross the line.", INK],
-		["Keys: D  F  J  K  (or the arrow keys)", Color("#ffd23f")],
-		["Phone: tap the 4 screen columns.", Color("#ffd23f")],
+		["Keys: A  S  D", Color("#ffd23f")],
+		["Phone: tap the 3 screen columns.", Color("#ffd23f")],
 		["", INK],
 		["PERFECT ±45ms · GREAT ±90 · GOOD ±135", INK],
 		["Combo raises the multiplier up to x4.", INK],
@@ -547,7 +573,7 @@ static func draw_howto(m, sz: Vector2) -> void:
 		["Misses drain your PULSE - empty = fail.", Color("#ff4d6d")],
 		["", INK],
 		["RUNNER mode: same notes, new view.", Color("#b36bff")],
-		["D/F hurdles = jump · J/K gates = slide.", INK],
+		["A jump hurdles · S slide · D dash.", INK],
 		["", INK],
 		["Grades S A B C D by accuracy.", INK],
 		["Audio feels late? Settings > Calibrate.", INK],

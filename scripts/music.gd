@@ -264,6 +264,12 @@ static func chart(comp: Dictionary, diff: int) -> Array:
 	var g := 1
 	while g * ss < min_gap:
 		g *= 2
+	# relaxed grids: Easy = quarter notes (half notes on fast songs),
+	# Normal = quarters with the odd 8th-note pair (quarters only on fast songs)
+	if diff == 0:
+		g = 4 if ss * 4.0 >= 0.42 else 8
+	elif diff == 1:
+		g = 2 if ss * 2.0 >= 0.19 else 4
 	var cand := {}   # quant step -> [prio, kind, midi]
 	for e in comp.events:
 		var k: String = e[1]
@@ -311,36 +317,42 @@ static func chart(comp: Dictionary, diff: int) -> Array:
 			continue
 		if diff == 1 and c[0] < 1.0:
 			continue
+		# Normal: an off-beat 8th only after a gap of at least a beat (no streams)
+		if diff == 1 and st % 4 != 0 and st - prev_step < 4:
+			continue
+		# Easy: never closer than one beat
+		if diff == 0 and st - prev_step < 4:
+			continue
 		var lane: int
 		match c[1]:
 			"L":
 				var dm: int = int(c[2]) - prev_midi
-				var base := prev_lane if prev_lane >= 0 else clampi(int(float(c[2] - lo) * 4.0 / float(hi - lo + 1)), 0, 3)
+				var base := prev_lane if prev_lane >= 0 else clampi(int(float(c[2] - lo) * 3.0 / float(hi - lo + 1)), 0, 2)
 				if prev_midi < 0:
 					lane = base
 				elif dm == 0:
-					lane = 3 - base if base != 3 - base else (base + 1) % 4
+					lane = 2 - base if base != 1 else (prev2 if prev2 >= 0 and prev2 != 1 else 0)
 				else:
-					var stp := (1 if absi(dm) <= 3 else 2) * signi(dm)
+					var stp := (1 if absi(dm) <= 4 else 2) * signi(dm)
 					lane = base + stp
-					if lane > 3: lane = maxi(0, base - absi(stp))
-					if lane < 0: lane = mini(3, base + absi(stp))
+					if lane > 2: lane = maxi(0, base - absi(stp))
+					if lane < 0: lane = mini(2, base + absi(stp))
 				prev_midi = int(c[2])
 			"S":
-				lane = 1 + (kc % 2); kc += 1
+				lane = 1; kc += 1
 			"K":
-				lane = 0 if kc % 2 == 0 else 3; kc += 1
+				lane = 0 if kc % 2 == 0 else 2; kc += 1
 			_:
-				lane = (st / g) % 4
+				lane = (st / g) % 3
 		var gap: int = st - prev_step
 		if lane == prev_lane and gap * ss < [0.9, 0.42, 0.22][diff]:
-			lane = (lane + (1 if prev2 <= lane else 3)) % 4
+			lane = (lane + (1 if prev2 <= lane else 2)) % 3
 		notes.append([st * ss, lane])
 		# doubles
 		if diff > 0 and typ == "chorus" and st % (16 if diff == 1 else 8) == 0:
-			var l2 := 3 - lane
+			var l2 := 2 - lane
 			if l2 == lane:
-				l2 = (lane + 2) % 4
+				l2 = 0
 			notes.append([st * ss, l2])
 			dcount += 1
 		prev2 = prev_lane

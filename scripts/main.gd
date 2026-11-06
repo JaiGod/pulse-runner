@@ -7,12 +7,13 @@ const W_GREAT := 0.09
 const W_GOOD := 0.135
 const JNAME := ["PERFECT", "GREAT", "GOOD", "MISS"]
 const JCOL := [Color("#ffe45c"), Color("#2cf6ff"), Color("#7dff8a"), Color("#ff4d6d")]
-const LANE_COL := [Color("#2cf6ff"), Color("#ff3cac"), Color("#b36bff"), Color("#ff9f2c")]
+const LANE_COL := [Color("#2cf6ff"), Color("#ff3cac"), Color("#ff9f2c")]
 const SAVE_PATH := "user://pulse_runner.cfg"
-const KEYS := [[KEY_D, KEY_LEFT], [KEY_F, KEY_DOWN], [KEY_J, KEY_UP], [KEY_K, KEY_RIGHT]]
+const KEYS := [[KEY_A, KEY_LEFT], [KEY_S, KEY_DOWN], [KEY_D, KEY_RIGHT]]
+const LANES := 3
 
 var state := "title"
-var settings := {"speed": 2.0, "offset": 0, "mode": 0, "sound": true, "hits": true}
+var settings := {"speed": 1.0, "offset": 0, "mode": 0, "sound": true, "hits": true}
 var best := {}
 var sel := 0
 var diff := 1
@@ -55,12 +56,12 @@ var fever_until := -1.0
 var failed := false
 var last_t := 0.0
 var result := {}
-var pressed := [false, false, false, false]
-var flash := [0.0, 0.0, 0.0, 0.0]
+var pressed := [false, false, false]
+var flash := [0.0, 0.0, 0.0]
 var pop := {"text": "", "col": Color.WHITE, "t": 9.0, "ms": 0}
 var parts: Array = []
 var shake := 0.0
-var runner := {"x": 1.5, "lane": 1, "jump": 9.0, "slide": 9.0, "trip": 9.0}
+var runner := {"x": 1.0, "lane": 1, "jump": 9.0, "slide": 9.0, "dash": 9.0, "trip": 9.0}
 
 # calibration
 var cal_taps: Array = []
@@ -111,6 +112,9 @@ func _load() -> void:
 		return
 	for k in settings.keys():
 		settings[k] = cf.get_value("settings", k, settings[k])
+	# v2 saves: the default chart speed was halved (2.0 -> 1.0); migrate old saves once
+	if int(cf.get_value("settings", "v", 1)) < 2:
+		settings.speed = 1.0
 	best = cf.get_value("scores", "best", {})
 	sel = clampi(int(cf.get_value("ui", "sel", 0)), 0, Music.SONGS.size() - 1)
 	diff = clampi(int(cf.get_value("ui", "diff", 1)), 0, 2)
@@ -119,6 +123,7 @@ func _save() -> void:
 	var cf := ConfigFile.new()
 	for k in settings.keys():
 		cf.set_value("settings", k, settings[k])
+	cf.set_value("settings", "v", 2)
 	cf.set_value("scores", "best", best)
 	cf.set_value("ui", "sel", sel)
 	cf.set_value("ui", "diff", diff)
@@ -162,11 +167,11 @@ func _process(delta: float) -> void:
 			_update_play(delta)
 		"calib":
 			pass
-	for i in 4:
+	for i in LANES:
 		flash[i] = maxf(0.0, flash[i] - delta * 5.0)
 	pop.t += delta
 	shake = maxf(0.0, shake - delta * 2.5)
-	runner.jump += delta; runner.slide += delta; runner.trip += delta
+	runner.jump += delta; runner.slide += delta; runner.dash += delta; runner.trip += delta
 	runner.x = lerpf(runner.x, float(runner.lane), minf(1.0, delta * 16.0))
 	var keep := []
 	for p in parts:
@@ -263,7 +268,7 @@ func _begin() -> void:
 	scan = 0; score = 0; combo = 0; max_combo = 0; counts = [0, 0, 0, 0]
 	health = 1.0; fever = 0.0; fever_until = -1.0; failed = false; result = {}
 	parts = []; pop.t = 9.0
-	runner = {"x": 1.5, "lane": 1, "jump": 9.0, "slide": 9.0, "trip": 9.0}
+	runner = {"x": 1.0, "lane": 1, "jump": 9.0, "slide": 9.0, "dash": 9.0, "trip": 9.0}
 	for n in notes:
 		n[2] = -1
 	music.stream = streams[sel]
@@ -359,10 +364,10 @@ func _judge(i: int, dt: float) -> void:
 				shake = 0.6
 				_burst(Vector2(get_viewport_rect().size.x / 2, get_viewport_rect().size.y * 0.4), Color("#ffe45c"), 40)
 		runner.lane = lane
-		if lane < 2:
-			runner.jump = 0.0; runner.slide = 9.0
-		else:
-			runner.slide = 0.0; runner.jump = 9.0
+		# A = jump the hurdle, S = slide under the gate, D = dash through the barrier
+		runner.jump = 0.0 if lane == 0 else 9.0
+		runner.slide = 0.0 if lane == 1 else 9.0
+		runner.dash = 0.0 if lane == 2 else 9.0
 		var p: Vector2 = view.lane_hit_pos(self, lane)
 		_burst(p, LANE_COL[lane] if j > 0 else Color("#ffe45c"), 14 if j == 0 else 8)
 	else:
@@ -457,7 +462,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 	if ev is InputEventKey and ev.pressed and not ev.echo:
 		_key(ev.keycode)
 	elif ev is InputEventKey and not ev.pressed:
-		for l in 4:
+		for l in LANES:
 			if ev.keycode in KEYS[l]:
 				pressed[l] = false
 	elif ev is InputEventScreenTouch:
@@ -465,12 +470,12 @@ func _unhandled_input(ev: InputEvent) -> void:
 		if ev.pressed:
 			_touch(pos, ev.index)
 		elif state == "play":
-			for l in 4:
+			for l in LANES:
 				pressed[l] = false
 
 func _key(k: int) -> void:
 	if state == "play":
-		for l in 4:
+		for l in LANES:
 			if k in KEYS[l]:
 				pressed[l] = true
 				hit(l)
@@ -518,7 +523,7 @@ func _touch(pos: Vector2, _idx: int) -> void:
 		if r.grow(10).has_point(pos):
 			pause_game(); return
 		var w := get_viewport_rect().size.x
-		var l := clampi(int(pos.x / w * 4.0), 0, 3)
+		var l := clampi(int(pos.x / w * 3.0), 0, 2)
 		pressed[l] = true
 		hit(l)
 		return
@@ -560,7 +565,7 @@ func _act(id: String) -> void:
 			AudioServer.set_bus_mute(0, not settings.sound)
 			_save()
 		"hits": settings.hits = not settings.hits
-		"spd-": settings.speed = maxf(1.0, settings.speed - 0.25)
+		"spd-": settings.speed = maxf(0.5, settings.speed - 0.25)
 		"spd+": settings.speed = minf(5.0, settings.speed + 0.25)
 		"off-": settings.offset = int(settings.offset) - 5
 		"off+": settings.offset = int(settings.offset) + 5

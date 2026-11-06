@@ -1,0 +1,69 @@
+name: Test, export & deploy to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Smoke test + Web export + screenshots
+    runs-on: ubuntu-latest
+    container: barichello/godot-ci:4.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates
+          [ -d ~/.local/share/godot/export_templates/4.3.stable ] || ln -s /root/.local/share/godot/export_templates/4.3.stable ~/.local/share/godot/export_templates/4.3.stable
+      - name: Import project
+        run: godot --headless --path . --import || true
+      - name: Smoke test (autoplay S rank, fail state, menus, 24 charts)
+        run: |
+          godot --headless --path . res://tests/SmokeTest.tscn 2>&1 | tee smoke.log
+          grep -q "SMOKE OK" smoke.log
+          ! grep -q "SCRIPT ERROR" smoke.log
+      - name: Export Web (threads off, Compatibility renderer)
+        run: |
+          mkdir -p site/play
+          godot --headless --path . --export-release "Web" site/play/index.html
+          test -f site/play/index.pck
+      - name: Assemble site (landing page + game at /play/)
+        run: |
+          cp web/index.html site/index.html
+          mkdir -p site/screenshots
+          if [ -d docs/screenshots ]; then cp docs/screenshots/*.jpg site/screenshots/ || true; fi
+          touch site/.nojekyll
+      - name: Capture screenshots under Xvfb (into /shots/)
+        continue-on-error: true
+        run: |
+          apt-get update -qq && apt-get install -y -qq xvfb xauth libgl1-mesa-dri libglx-mesa0 > /dev/null
+          mkdir -p site/shots
+          export SHOTS="$PWD/site/shots"
+          PREFIX=m_ timeout 200 xvfb-run -a -s "-screen 0 1280x1000x24" godot --path . --rendering-driver opengl3 --audio-driver Dummy --resolution 540x960 res://tests/Shots.tscn || true
+          PREFIX=d_ timeout 200 xvfb-run -a -s "-screen 0 1400x900x24" godot --path . --rendering-driver opengl3 --audio-driver Dummy --resolution 1280x720 res://tests/Shots.tscn || true
+          ls -la site/shots
+          for f in site/shots/*.jpg; do [ -f "site/screenshots/$(basename $f)" ] || cp "$f" site/screenshots/; done
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

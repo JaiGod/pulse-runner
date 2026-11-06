@@ -36,7 +36,7 @@ func _run() -> void:
 			c.append(ch.size())
 			var ok := true
 			for k in range(1, ch.size()):
-				if ch[k][0] < ch[k - 1][0] - 0.0001 or ch[k][1] < 0 or ch[k][1] > 3:
+				if ch[k][0] < ch[k - 1][0] - 0.0001 or ch[k][1] < 0 or ch[k][1] > 2:
 					ok = false
 			check(ok and ch.size() > 40, "%s %s chart sorted, %d notes" % [s.name, Music.DIFFS[d], ch.size()])
 		check(c[0] < c[1] and c[1] < c[2], "%s difficulty ramps %s" % [s.name, str(c)])
